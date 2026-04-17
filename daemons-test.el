@@ -140,6 +140,30 @@ test
   (should (equal (system-name)
                  (daemons--get-user-and-hostname "/ssh::/etc/issue"))))
 
+(ert-deftest daemons--buttonize-file-paths-test ()
+  (with-temp-buffer
+    (insert "Log file: /var/log/transmission.log\n")
+    (daemons--buttonize-file-paths)
+    (goto-char (point-min))
+    (re-search-forward "/var/log/transmission.log")
+    (should (button-at (match-beginning 0)))))
+
+(ert-deftest daemons--buttonize-file-paths-multiple-test ()
+  (with-temp-buffer
+    (insert "Config: /etc/transmission/settings.json\nLog: /var/log/foo.log\n")
+    (daemons--buttonize-file-paths)
+    (goto-char (point-min))
+    (re-search-forward "/etc/transmission/settings.json")
+    (should (button-at (match-beginning 0)))
+    (re-search-forward "/var/log/foo.log")
+    (should (button-at (match-beginning 0)))))
+
+(ert-deftest daemons--buttonize-file-paths-no-false-positives-test ()
+  (with-temp-buffer
+    (insert "Status: running\nPID: 1234\n")
+    (daemons--buttonize-file-paths)
+    (should (null (next-button (point-min))))))
+
 (ert t)
 
 ;; Test teardown - we added a dummy submodule
