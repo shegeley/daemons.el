@@ -9,6 +9,12 @@ $(PACKAGE_NAME).tar: clean $(FILES)
 	cp $(FILES) $(PACKAGE_NAME)
 	tar -cf $(PACKAGE_NAME).tar $(PACKAGE_NAME)
 
+guix/test:
+	guix build \
+	  -L . \
+	  --no-grafts \
+	  -e '(@ (daemons-shepherd-system-test) %test-daemons-shepherd)'
+
 clean:
 	rm -f $(PACKAGE_NAME).tar
 	rm -rf $(PACKAGE_NAME)
