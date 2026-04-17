@@ -63,6 +63,42 @@
     (seq-filter 'daemons-shepherd--item-is-service-p)
     (seq-map 'daemons-shepherd--parse-list-item)))
 
+;;; Custom actions
+
+(defun daemons-shepherd--parse-actions (output)
+  "Parse action names from herd doc OUTPUT string."
+  (let (actions)
+    (with-temp-buffer
+      (insert output)
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (when (re-search-forward "\\bactions[^:\n]*:" nil t)
+          (forward-line 1)
+          (while (and (not (eobp))
+                      (looking-at "^[ \t]+\\([a-z_-]+\\)"))
+            (push (match-string 1) actions)
+            (forward-line 1)))))
+    (nreverse actions)))
+
+(defun daemons-shepherd--get-actions (name)
+  "Return list of available herd actions for service NAME.
+Queries `herd doc NAME' and falls back to standard actions on parse failure."
+  (let* ((output (daemons--shell-command-to-string (format "herd doc %s" name)))
+         (parsed (daemons-shepherd--parse-actions output)))
+    (or parsed
+        '("start" "stop" "status" "restart" "reload" "enable" "disable"))))
+
+(defun daemons-shepherd-run-action (name)
+  "Interactively select and run a herd action on service NAME."
+  (interactive (list (daemons--daemon-at-point)))
+  (let* ((actions (daemons-shepherd--get-actions name))
+         (action (completing-read (format "herd action for %s: " name) actions nil nil)))
+    (when (and action (not (string-empty-p action)))
+      (daemons--run-shell-with-output-buffer
+       (format "herd %s %s" action name)
+       action
+       name))))
+
 ;;; Recent messages expansion
 
 (defun daemons-shepherd--show-messages (messages service-name)

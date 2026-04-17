@@ -110,6 +110,7 @@ Functions are called with no arguments while the buffer is still writable.")
     (define-key map (kbd "e") 'daemons-enable-at-point)
     (define-key map (kbd "d") 'daemons-disable-at-point)
     (define-key map (kbd "u") 'daemons-systemd-toggle-user)
+    (define-key map (kbd "a") 'daemons-run-action-at-point)
     map)
   "Keymap for daemons mode.")
 
@@ -195,6 +196,32 @@ Otherwise, return the value of ‘daemons--current-id’ variable (set by
                        'help-echo (format "mouse-1, RET: open %s" path)
                        'follow-link t
                        'face 'button))))))
+
+(defun daemons--run-shell-with-output-buffer (shell-cmd display-name daemon-name)
+  "Run SHELL-CMD, showing DISPLAY-NAME as the command acting on DAEMON-NAME."
+  (let ((hostname (daemons--get-user-and-hostname default-directory)))
+    (with-current-buffer (get-buffer-create (daemons--get-output-buffer-name hostname))
+      (setq buffer-read-only nil
+            daemons--current-id daemon-name)
+      (when daemons-always-sudo (daemons--sudo))
+      (delete-region (point-min) (point-max))
+      (daemons--insert-header
+       (format "Output of `%s` on `%s` (%s):" display-name daemon-name hostname))
+      (daemons--shell-command shell-cmd t)
+      (daemons--buttonize-file-paths)
+      (run-hooks 'daemons-output-post-process-hook)
+      (daemons-output-mode))
+    (daemons--switch-output-buffer-create hostname)))
+
+(defun daemons-run-action-at-point (name)
+  "Run a custom action on the daemon NAME at point.
+Dispatches to a submodule-specific handler named `<submodule>-run-action'."
+  (interactive (list (daemons--daemon-at-point)))
+  (let* ((submodule (daemons-init-system-submodule))
+         (fn (intern (format "%s-run-action" submodule))))
+    (if (fboundp fn)
+        (funcall fn name)
+      (error "Custom actions not supported for %s" submodule))))
 
 (defun daemons--insert-header (text)
   "Insert an underlined TEXT header into the buffer."
