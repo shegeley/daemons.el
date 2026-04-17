@@ -15,6 +15,12 @@ guix/test:
 	  --no-grafts \
 	  -e '(@ (daemons-shepherd-system-test) %test-daemons-shepherd)'
 
+guix/build:
+	guix build \
+	  -L . \
+	  --no-grafts \
+	  -e '(@ (daemons-package) emacs-daemons-local)'
+
 clean:
 	rm -f $(PACKAGE_NAME).tar
 	rm -rf $(PACKAGE_NAME)
