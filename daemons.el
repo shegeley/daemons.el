@@ -169,6 +169,29 @@ Otherwise, return the value of ‘daemons--current-id’ variable (set by
       (tabulated-list-get-id)
     daemons--current-id))
 
+(defun daemons--open-log-file (path)
+  "Open file at PATH in Emacs.  Use sudo via TRAMP if not directly readable."
+  (if (file-readable-p path)
+      (find-file path)
+    (condition-case nil
+        (find-file (format "/sudo::%s" path))
+      (error (message "Cannot open %s" path)))))
+
+(defun daemons--buttonize-file-paths ()
+  "Make absolute file paths in the current buffer into clickable buttons."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "\\(/[a-zA-Z][a-zA-Z0-9_./-]*[a-zA-Z0-9]\\)" nil t)
+      (let* ((start (match-beginning 1))
+             (end (match-end 1))
+             (path (match-string 1)))
+        (unless (button-at start)
+          (make-button start end
+                       'action (let ((p path)) (lambda (_) (daemons--open-log-file p)))
+                       'help-echo (format "mouse-1, RET: open %s" path)
+                       'follow-link t
+                       'face 'button))))))
+
 (defun daemons--insert-header (text)
   "Insert an underlined TEXT header into the buffer."
   (insert (concat (propertize text 'face 'underline) "\n\n")))
@@ -194,6 +217,7 @@ active."
       (delete-region (point-min) (point-max))
       (daemons--insert-header (format "Output of `%s` on `%s` (%s):" command daemon-name hostname))
       (daemons--run command daemon-name)
+      (daemons--buttonize-file-paths)
       (daemons-output-mode))
     (daemons--switch-output-buffer-create hostname)))
 
