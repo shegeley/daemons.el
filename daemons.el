@@ -96,6 +96,10 @@ Override this to your own value for mocking out shell calls in tests.")
 (defvar daemons--init-system-submodules-alist nil
   "An alist of the available init system submodules.")
 
+(defvar daemons-output-post-process-hook nil
+  "Hook run after daemon command output is inserted into the output buffer.
+Functions are called with no arguments while the buffer is still writable.")
+
 (defvar daemons-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") 'daemons-status-at-point)
@@ -218,6 +222,7 @@ active."
       (daemons--insert-header (format "Output of `%s` on `%s` (%s):" command daemon-name hostname))
       (daemons--run command daemon-name)
       (daemons--buttonize-file-paths)
+      (run-hooks 'daemons-output-post-process-hook)
       (daemons-output-mode))
     (daemons--switch-output-buffer-create hostname)))
 

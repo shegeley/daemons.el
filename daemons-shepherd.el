@@ -63,5 +63,51 @@
     (seq-filter 'daemons-shepherd--item-is-service-p)
     (seq-map 'daemons-shepherd--parse-list-item)))
 
+;;; Recent messages expansion
+
+(defun daemons-shepherd--show-messages (messages service-name)
+  "Show MESSAGES from SERVICE-NAME in a dedicated buffer using `log-view-mode'."
+  (let ((buf (get-buffer-create (format "*shepherd-messages: %s*" service-name))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (string-trim messages))
+        (insert "\n")
+        (goto-char (point-min)))
+      (require 'log-view nil t)
+      (if (fboundp 'log-view-mode)
+          (log-view-mode)
+        (view-mode 1)))
+    (switch-to-buffer-other-window buf)))
+
+(defun daemons-shepherd--buttonize-recent-messages ()
+  "Make the 'Recent messages:' header in the current shepherd output clickable.
+Clicking it opens the message lines in a dedicated `log-view-mode' buffer."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward "^\\s-*Recent messages:\\s-*$" nil t)
+      (let* ((hdr-start (match-beginning 0))
+             (hdr-end (match-end 0))
+             (msgs-begin (progn (forward-line 1) (point)))
+             (msgs-end (progn
+                         (while (and (not (eobp))
+                                     (looking-at "^[ \t]+"))
+                           (forward-line 1))
+                         (point)))
+             (messages (buffer-substring-no-properties msgs-begin msgs-end))
+             (svc daemons--current-id))
+        (make-button hdr-start hdr-end
+                     'action (let ((m messages) (s svc))
+                               (lambda (_) (daemons-shepherd--show-messages m s)))
+                     'help-echo "mouse-1, RET: open all messages in log buffer"
+                     'follow-link t
+                     'face '(bold underline))))))
+
+(defun daemons-shepherd--post-process-output ()
+  "Post-process shepherd output: buttonize 'Recent messages:' if present."
+  (daemons-shepherd--buttonize-recent-messages))
+
+(add-hook 'daemons-output-post-process-hook #'daemons-shepherd--post-process-output)
+
 (provide 'daemons-shepherd)
 ;;; daemons-shepherd.el ends here
